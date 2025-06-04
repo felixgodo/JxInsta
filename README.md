@@ -1,4 +1,5 @@
 <p align="center"><img alt="JxInsta" height="300" src="/JxInsta.png"></p>
+
 <p align="center">
   <img src="https://img.shields.io/github/license/ErrorxCode/JxInsta?style=for-the-badge">
   <img src="https://img.shields.io/github/stars/ErrorxCode/JxInsta?style=for-the-badge">
@@ -12,118 +13,113 @@
   <img src="https://img.shields.io/badge/Written%20In-Java-cyan?style=flat-square">
 </p>
 
+---
 
-# JxInsta
-A java library of Instagram private web API (*may include mobile api in future*).  This library is built as a replacement for **instagram4j** since it was too old fashioned and was facing a challenge problem due to a similar header population problem among it's users. This project is lead by **[EasyInsta](https://github.com/ErrorxCode/EasyInsta)** and is part of it.
+# 🚀 JxInsta
 
-## Features
+**JxInsta** is a modern, lightweight Java wrapper for Instagram’s private web API (with potential support for mobile API in the future).  
+It’s designed as a clean and reliable replacement for **instagram4j**, which is outdated and suffered from common header issues.
 
--   Lightweight and Easy 2 use, Object-oriented
--   No need API token
--   Supports  **Sending messages**
--   Supports  **Getting/fetching messages**
--   Supports  **Deleting message**
--   Supports  **_Realtime direct messages listener_** (Pending)
--   Supports  **Login using cache/saving sessions**
--   Supports  **Posting (Picture)**
--   Supports  **Adding stories (Photo)**
--   Supports  **Following/Unfollowing**
--   Supports  ***Acception/Ignoring follow request*** (Pending)
--   Supports  **Scrapping followings and followers**
--   Supports  **Getting profile data**
--   Supports  **Liking/commenting on post**
--   Supports  **Fetching feeds/timeline post**
--   Supports  **Downloading posts and pfp**
+> 🔧 This library is developed under the **[EasyInsta](https://github.com/ErrorxCode/EasyInsta)** project umbrella.
 
-## Implimentation
-Due to the outage of jitpack, the library cannot published. Therfore, you have to locally implement it by puting the .jar file in the lib directory.
+---
 
-#### Step 1 : Download the `.jar` from the release section and put it in `lib` folder of your project.
+## ✨ Features
 
-#### Step 2 : declare the dependency
-*For gradle*
+- ✅ Lightweight, object-oriented, and easy to use
+- 🚫 No API token required
+- 💬 Send, receive, and delete messages
+- 📡 *Realtime direct message listener* (**pending**)
+- 🔐 Login with session cache
+- 📷 Post photos and stories
+- ➕ Follow / ➖ Unfollow users
+- 👤 Accept / ignore follow requests (**pending**)
+- 📈 Scrape followers / followings
+- 👁️ View profile info
+- ❤️ Like / comment on posts
+- 📰 Get feed / timeline
+- 💾 Download posts and profile pictures
+
+---
+
+## 📦 Adding the Project as a Dependency
+
+To use this project as a dependency, simply clone the repository and publish it to your local Maven repository:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+Then, in your project's `build.gradle`, include:
 
 ```groovy
-dependencies {
-    implementation files('libs/JxInsta-v1.0-beta.jar')
-    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '5.0.0-alpha.11' //skip if already implemented
+repositories {
+    mavenLocal()
+    // other repositories if needed
 }
 ```
 
-*For maven*
+And add the dependency:
 
-```XML
-<dependency>
-    <groupId>com.sample</groupId>
-    <artifactId>jxinsta</artifactId>
-    <version>v1.0-beta-2</version>
-    <scope>system</scope>
-    <systemPath>${project.basedir}/lib/JxInsta-v1.0-beta-2.jar</systemPath>
-</dependency>
-
-<dependency>
-    <groupId>com.squareup.okhttp3</groupId>
-    <artifactId>okhttp</artifactId>
-    <version>5.0.0-alpha.11</version>
-</dependency>
-
+```groovy
+dependencies {
+    implementation 'com.example:jxinsta:1.0.0'
+}
 ```
 
-You can search on Google for more info on including local dependencies.
+---
 
-## Acknowledgements
+## 📚 Documentation
 
--   [Instagram usage limits](https://www.linkedin.com/pulse/stay-within-boundaries-complete-breakdown-instagrams-cmscc/)
-- [Instagram daily limit](https://socialpros.co/instagram-daily-limits/#:~:text=Instagram's%20Daily%20Limits%20%E2%80%93%20Like,than%2030%20likes%20per%20hour)
--   [API Policies](https://developers.facebook.com/devpolicy/)
--   [About Instagram checkpoints and challenges](https://github.com/ErrorxCode/JxInsta/blob/main/Instagram%20checkpoints.md)
+Full usage instructions are available in the [📖 User Guide](https://github.com/ErrorxCode/JxInsta/wiki).
 
-## Its easy :)
+---
+
+## 💡 Example
 
 ```java
-JxInsta insta = new JxInsta("username", "password", JxInsta.LoginType.WEB_AUTHENTICATION);  
+final JxInsta insta = new JxInsta("username", "password", JxInsta.LoginType.WEB_AUTHENTICATION);  
 insta.uploadStory(new File("photos/story-24.png"));  
-var profile = insta.getProfile("username").;
-...
+var profile = insta.getProfile("username");
+// Other actions...
 ```
 
+---
 
-## Documentation
+## 🙌 Acknowledgements
 
-[](https://github.com/ErrorxCode/EasyInsta#documentation)
+- 📌 [Instagram usage limits](https://www.linkedin.com/pulse/stay-within-boundaries-complete-breakdown-instagrams-cmscc/)
+- ⏱️ [Instagram daily limit](https://socialpros.co/instagram-daily-limits/#:~:text=Instagram's%20Daily%20Limits%20%E2%80%93%20Like,than%2030%20likes%20per%20hour)
+- 📜 [API Policies](https://developers.facebook.com/devpolicy/)
+- 🛑 [Instagram checkpoints & challenges](https://github.com/ErrorxCode/JxInsta/blob/main/Instagram%20checkpoints.md)
 
-~~Javadoc~~ (Not needed)
+---
 
-[User guide](https://github.com/ErrorxCode/JxInsta/wiki)
+## 🙋‍♂️ FAQ
 
+**Q1. Can we use this library to make bots?**  
+✅ Yes. While Instagram prohibits bots through its official APIs, this is a private API. Use responsibly and stay within usage limits.
 
-## FAQ
+**Q2. Can we download stories or posts with this library?**  
+✅ Yes — even without logging in.
 
-#### [Q.1] Can we use this library to make bots?
+**Q3. Does the library require tokens or keys?**  
+❌ No tokens needed — just username and password (or login via cookies / bearer token).
 
-**Answer.** Yes. But Instagram doesn't allow them to make bots with their official graph APIs. Although this is not the official API, you should follow the usage limits to prevent detection.
+**Q4. Can we use WebView to login on Android?**  
+✅ Yes. See this [example](https://github.com/ErrorxCode/JxInsta/wiki/Android-users#using-webview-for-login).
 
-#### [Q.2] Can we download stories or posts using this library?
+---
 
-**Answer.** Yes, and that too without login
+## 🤝 Contributing
 
-#### [Q.3] Does the use of this library require any tokens or other keys?
+Contributions are always welcome!  
+Check out the [Contribution Guide](https://github.com/ErrorxCode/JxInsta/blob/main/CONTRIBUTING.md), the [Code of Conduct](https://github.com/ErrorxCode/JxInsta/blob/main/CODE_OF_CONDUCT.md), and the [Todo list](https://github.com/ErrorxCode/JxInsta/blob/main/Todo.md) for ideas on how to help.
 
-**Answer.** No. You only need to have the username and password of the account. You can also log in using cookies and bearer tokens.
+---
 
-#### [Q.4] In Android, can we use Webview to log in?
+## 💬 Support
 
-**Answer.**  Yes, check  [this](https://github.com/ErrorxCode/JxInsta/wiki/Android-users#using-webview-for-login)  example on how to use that
+If you like this project, don’t forget to ⭐ the repository!
 
-
-## Contributing
-
-Contributions are always welcome! There is a lot of scope for contribution in this library.
-
-Please refer to  [Contribution guide](https://github.com/ErrorxCode/JxInsta/blob/main/CONTRIBUTING.md). Also, see the  [code of conduct](https://github.com/ErrorxCode/JxInsta/blob/main/CODE_OF_CONDUCT.md).
-Please see [Todo. md](https://github.com/ErrorxCode/JxInsta/blob/main/Todo.md) to see what features are pending and what things you can add on your end.
-## Support
-
-The fastest channel to contact me is **Instagram**, just DM me and I'll reply to you within 24 hours. My Instagram : [x0.rahil](https://instagram.com/x0.rahil)
-
-You can show your support by giving a ⭐.
+---
