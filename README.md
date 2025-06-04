@@ -78,12 +78,15 @@ Full usage instructions are available in the [📖 User Guide](https://github.co
 ## 💡 Example
 
 ```java
-final JxInsta insta = new JxInsta("username", "password", JxInsta.LoginType.WEB_AUTHENTICATION);  
-insta.uploadStory(new File("photos/story-24.png"));  
-var profile = insta.getProfile("username");
-// Other actions...
+public class Test {
+    public static void main(String[] args) {
+        final JxInsta insta = new JxInsta("username", "password", JxInsta.LoginType.WEB_AUTHENTICATION);
+        insta.uploadStory(new File("photos/story-24.png"));
+        var profile = insta.getProfile("username");
+        // Other actions...
+    }
+}
 ```
-
 ---
 
 ## 🙌 Acknowledgements
