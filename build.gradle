@@ -1,31 +1,42 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath 'com.google.gms:google-services:4.4.0'
-        classpath 'com.android.tools.build:gradle:8.2.2'
-        classpath 'gradle.plugin.com.onesignal:onesignal-gradle-plugin:0.14.0'
-        classpath "com.autonomousapps:dependency-analysis-gradle-plugin:1.29.0"
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
-    }
+plugins {
+    id("java")
+    id("com.gradleup.shadow") version "9.0.0-beta15"
+    id("maven-publish")
 }
 
-allprojects {
-    apply plugin: "com.autonomousapps.dependency-analysis"
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            url 'https://jitpack.io'
+group = 'com.errorxcode'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+dependencies {
+    implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.11")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.19.0")
+    implementation("org.json:json:20250517")
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            groupId = project.group
+            artifactId = 'jxinsta'
+            version = project.version
         }
     }
-}
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+    repositories {
+        mavenLocal()
+    }
 }
