@@ -195,7 +195,7 @@ public class Utils {
                 .url(Constants.BASE_URL + endpoint)
                 .headers(Headers.of(Constants.BASE_HEADERS))
                 .addHeader(isDesktop ? "cookie" : "authorization", info.authorization())
-                .addHeader(isDesktop ? "x-csrftoken" : "null", isDesktop ? info.csrf() : "null")
+                .addHeader(isDesktop ? "x-csrftoken" : "null", isDesktop ? info.crsf() : "null")
                 .addHeader("user-agent", isDesktop ? Constants.WEB_USER_AGENT : Constants.MOBILE_USER_AGENT)
                 .get().build();
     }
@@ -208,7 +208,7 @@ public class Utils {
                 .url(Constants.BASE_URL + endpoint)
                 .headers(Headers.of(Constants.BASE_HEADERS_WITHOUT_CONTENT_TYPE))
                 .addHeader(isDesktop ? "cookie" : "authorization", authInfo.authorization())
-                .addHeader(isDesktop ? "x-csrftoken" : "null", isDesktop ? authInfo.csrf() : "na")
+                .addHeader(isDesktop ? "x-csrftoken" : "null", isDesktop ? authInfo.crsf() : "na")
                 .addHeader("user-agent", isDesktop ? Constants.WEB_USER_AGENT : Constants.MOBILE_USER_AGENT);
 
         if (body == null) {

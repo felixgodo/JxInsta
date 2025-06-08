@@ -16,26 +16,23 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.errorxcode.jxinsta.Constants.MAX_CAROUSEL_LENGTH;
 
 public class JxInsta {
+    private static final Logger LOGGER = Logger.getLogger(JxInsta.class.getName());
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient().newBuilder().followRedirects(false).build();
-    private final LoginType loginType;
-
-    private String token;
-    private String cookie;
-    private String crsfToken;
-    private String authorization;
-
     private final AuthInfo authInfo;
 
     public AuthInfo getAuthInfo() {
         return authInfo;
     }
 
-    public JxInsta(String username, String password, LoginType type) {
-        this.loginType = type;
+    public JxInsta(String username, String password, LoginType loginType) {
+        AuthInfo.AuthInfoBuilder infoBuilder = new AuthInfo.AuthInfoBuilder();
+
         String encodedPassword = "#PWD_INSTAGRAM_BROWSER:0:" + new Date().getTime() + ":" + password;
         FormBody body = new FormBody.Builder()
                 .add("enc_password", encodedPassword)
@@ -90,16 +87,18 @@ public class JxInsta {
             throw new RuntimeException(errorMessage);
         }
 
-        if (loginType == LoginType.WEB_AUTHENTICATION) {
-            cookie = Utils.extractCookie(authenticationResponse.headers("set-cookie"));
-            authorization = cookie;
-            crsfToken = Utils.extractCsrfToken(cookie);
-        } else if (loginType == LoginType.APP_AUTHENTICATION) {
-            token = authenticationResponse.header("ig-set-authorization");
-            authorization = token;
+
+        switch (loginType) {
+            case WEB_AUTHENTICATION ->
+                    infoBuilder.setCookie(Utils.extractCookie(authenticationResponse.headers("set-cookie")))
+                            .setAuthorization(infoBuilder.getCookie())
+                            .setCrsf(Utils.extractCsrfToken(infoBuilder.getCookie()));
+            case APP_AUTHENTICATION -> infoBuilder.setToken(authenticationResponse.header("ig-set-authorization"))
+                    .setAuthorization(infoBuilder.getToken());
+            default -> LOGGER.warning("Unrecognized login type: " + loginType);
         }
 
-        authInfo = new AuthInfo(crsfToken, token, cookie, authorization, loginType);
+        authInfo = infoBuilder.build();
         authenticationResponse.close();
     }
 
@@ -133,62 +132,68 @@ public class JxInsta {
         params.put("has_stories", false);
         params.put("has_threaded_comments", false);
 
-        try (var res = Utils.graphql("17842794232208280", params, authorization)) {
-            var json = new JSONObject(res.body().string());
-            var timeline = json.getJSONObject("data").getJSONObject("user").getJSONObject("edge_web_feed_timeline");
-            var posts = timeline.getJSONArray("edges");
-            var list = new ArrayList<Post>();
+        try (var res = Utils.graphql("17842794232208280", params, authInfo.authorization())) {
+            JSONObject json = new JSONObject(res.body().string());
+            JSONObject timeline = json.getJSONObject("data")
+                    .getJSONObject("user")
+                    .getJSONObject("edge_web_feed_timeline");
+            JSONArray posts = timeline.getJSONArray("edges");
+            List<Post> list = new ArrayList<>();
 
             for (int i = 0; i < posts.length(); i++) {
-                var post = posts.getJSONObject(i).getJSONObject("node");
-                var pst = new Post(authInfo, post.getLong("id"));
-                pst.isVideo = post.getBoolean("is_video");
-                pst.caption = post.has("edge_media_to_caption") ? post.getJSONObject("edge_media_to_caption")
+                JSONObject postNode = posts.getJSONObject(i).getJSONObject("node");
+                Post post = new Post(authInfo, postNode.getLong("id"));
+
+                post.isVideo = postNode.getBoolean("is_video");
+                post.caption = postNode.has("edge_media_to_caption") ? postNode.getJSONObject("edge_media_to_caption")
                         .getJSONArray("edges")
                         .getJSONObject(0)
                         .getJSONObject("node")
                         .getString("text") : "";
-                pst.likes = post.getJSONObject("edge_media_preview_like").getInt("count");
-                pst.comments = post.getJSONObject("edge_media_to_comment").getInt("count");
-                pst.shortcode = post.getString("shortcode");
-                pst.download_url = post.getString("display_url");
-                pst.next_cursor = timeline.getJSONObject("page_info").getString("end_cursor");
-                list.add(pst);
+
+                post.likes = postNode.getJSONObject("edge_media_preview_like").getInt("count");
+                post.comments = postNode.getJSONObject("edge_media_to_comment").getInt("count");
+                post.shortcode = postNode.getString("shortcode");
+                post.download_url = postNode.getString("display_url");
+                post.next_cursor = timeline.getJSONObject("page_info").getString("end_cursor");
+                list.add(post);
             }
             return list;
         }
     }
 
     public List<Story[]> getFeedStories() throws InstagramException, IOException {
-        var list = new java.util.ArrayList<Story[]>();
-        var req = Utils.createGetRequest("feed/reels_tray/?is_following_feed=false", authInfo);
-        try (var res = Utils.call(req)) {
-            var users = new JSONObject(res.body().string()).getJSONArray("tray");
+        List<Story[]> list = new ArrayList<>();
+        Request request = Utils.createGetRequest("feed/reels_tray/?is_following_feed=false", authInfo);
+        List<Story> stories = new ArrayList<>();
+
+
+        try (Response response = Utils.call(request)) {
+            JSONArray users = new JSONObject(response.body().string()).getJSONArray("tray");
             for (int i = 0; i < users.length(); i++) {
-                var user_story_id = users.getJSONObject(i).getLong("id");
-                var stories = Story.getActualStory(String.valueOf(user_story_id), authInfo);
-                if (stories != null) {
-                    list.add(stories.toArray(new Story[0]));
-                }
+                long userStoryId = users.getJSONObject(i).getLong("id");
+                List<Story> actualStory = Story.getStoryFromId(String.valueOf(userStoryId), authInfo);
+                if (actualStory == null || actualStory.isEmpty()) continue;
+                list.add(stories.toArray(new Story[0]));
             }
 
-            return list;
         } catch (JSONException e) {
-            e.printStackTrace();
-            throw new InstagramException("Invalid response, require login or challenge",
-                    InstagramException.Reason.UNKNOWN);
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
+
+        return list;
     }
 
     public void postPictures(@NotNull String caption,
             boolean disableInteractions,
-            File... pictures) throws IOException, InstagramException {
-        if (pictures.length > MAX_CAROUSEL_LENGTH) {
-            throw new InstagramException("You can post only 10 pictures maximum in one post",
+            File... files) throws IOException, InstagramException {
+        if (files.length > MAX_CAROUSEL_LENGTH) {
+            throw new InstagramException("You can post only 10 files maximum in one post",
                     InstagramException.Reason.TOO_MUCH_PICTURES);
         }
 
-        List<String> mediaIds = Utils.uploadPictures(cookie != null ? cookie : token, pictures);
+        List<String> mediaIds = Utils.uploadPictures(authInfo.cookie() != null ? authInfo.cookie() : authInfo.token(),
+                files);
 
         JSONArray mediaIdsJson = new JSONArray();
         for (String mediaId : mediaIds) {
@@ -196,6 +201,7 @@ public class JxInsta {
             obj.put("upload_id", mediaId);
             mediaIdsJson.put(obj);
         }
+
         System.out.print("LOADED mediaIdsJson:" + mediaIdsJson);
         JSONObject body = new JSONObject();
 
@@ -206,21 +212,22 @@ public class JxInsta {
         body.put("disable_comments", disableInteractions ? "1" : "0");
         body.put("is_meta_only_post", false);
         body.put("is_open_to_public_submission", false);
-        body.put("jazoest", Utils.generateJazoest(crsfToken));
+        body.put("jazoest", Utils.generateJazoest(authInfo.crsf()));
         body.put("like_and_view_counts_disabled", disableInteractions ? 1 : 0);
         body.put("media_share_flow", "creation_flow");
         body.put("share_to_facebook", "");
         body.put("share_to_fb_destination_type", "USER");
         body.put("source_type", "library");
 
-        var req = Utils.createPostRequest(authInfo, "media/configure_sidecar/", body);
+        Request req = Utils.createPostRequest(authInfo, "media/configure_sidecar/", body);
         req = req.newBuilder().addHeader("x-ig-app-id", "936619743392459").build();
-        try (var res = Utils.call(req)) {
-            var json = new JSONObject(res.body().string());
+
+        try (Response res = Utils.call(req)) {
+            JSONObject json = new JSONObject(res.body().string());
             if (json.getString("status").equals("ok")) {
                 System.out.println("Post successful");
             } else {
-                throw new InstagramException(json.toString(3), InstagramException.Reason.UNKNOWN);
+                LOGGER.log(Level.SEVERE, json.getString("message"), json);
             }
         }
     }
@@ -228,8 +235,12 @@ public class JxInsta {
     public void postPicture(InputStream inputStream,
             String caption,
             boolean disableInteractions) throws IOException, InstagramException {
-        var id = Utils.uploadPicture(inputStream, cookie != null ? cookie : token, System.currentTimeMillis());
-        var body = new HashMap<String, Object>();
+
+        String id = Utils.uploadPicture(inputStream,
+                authInfo.cookie() != null ? authInfo.cookie() : authInfo.token(),
+                System.currentTimeMillis());
+
+        HashMap<String, Object> body = new HashMap<>();
         body.put("caption", caption);
         body.put("upload_id", id);
         body.put("archive_only", "false");
@@ -241,24 +252,24 @@ public class JxInsta {
         body.put("source_type", "library");
         body.put("video_subtitles_enabled", "0");
 
-        var req = Utils.createPostRequest(authInfo, "media/configure/", body);
+        Request req = Utils.createPostRequest(authInfo, "media/configure/", body);
         req = req.newBuilder().addHeader("x-ig-app-id", "936619743392459").build();
 
-        try (var res = Utils.call(req)) {
-            var json = new JSONObject(res.body().string());
+        try (Response res = Utils.call(req)) {
+            JSONObject json = new JSONObject(res.body().string());
             if (json.getString("status").equals("ok")) {
-                System.out.println("Post successful");
+                LOGGER.info("Post successful");
             } else {
-                throw new InstagramException(json.toString(3), InstagramException.Reason.UNKNOWN);
+                LOGGER.log(Level.SEVERE, json.getString("message"), json);
             }
         }
     }
 
     @AuthenticationType(value = AuthenticationType.Method.MOBILE_AUTH)
     public void uploadStory(@NotNull File photo) throws IOException {
-        if (token == null) {
-            throw new IllegalArgumentException(
-                    "Story upload is only supported for mobile authenticated users. Make sure that you have Bearer token");
+        if (authInfo.token() == null) {
+            LOGGER.severe("Story upload is only supported for mobile authenticated users");
+            return;
         }
 
         var extension = photo.getName().substring(photo.getName().lastIndexOf("."));
@@ -266,7 +277,7 @@ public class JxInsta {
             throw new IllegalArgumentException("Invalid file type. Only videos are supported");
         }
 
-        var uploadId = Utils.uploadPicture(new FileInputStream(photo), token, System.currentTimeMillis());
+        var uploadId = Utils.uploadPicture(new FileInputStream(photo), authInfo.token(), System.currentTimeMillis());
         System.out.println(uploadId);
         var body = new HashMap<String, Object>();
         body.put("upload_id", uploadId);
@@ -276,7 +287,7 @@ public class JxInsta {
         body.put("has_original_sound", 1);
         body.put("capture_type", "normal");
 
-        var req = Utils.createPostRequest(AuthInfo.forMobile(token), "media/configure_to_story/", body);
+        var req = Utils.createPostRequest(AuthInfo.forMobile(authInfo.token()), "media/configure_to_story/", body);
         try (Response res = HTTP_CLIENT.newCall(req).execute()) {
             if (!res.isSuccessful()) {
                 return;
@@ -298,12 +309,12 @@ public class JxInsta {
 
     @AuthenticationType(value = AuthenticationType.Method.MOBILE_AUTH)
     public DirectMessage directMessaging() {
-        if (token == null) {
+        if (authInfo.token() == null) {
             throw new IllegalArgumentException(
                     "Direct messaging is only supported for mobile authenticated users. Make sure that you have Bearer token");
         }
 
-        return new DirectMessage(AuthInfo.forMobile(token));
+        return new DirectMessage(AuthInfo.forMobile(authInfo.token()));
     }
 
     @AuthenticationType(value = AuthenticationType.Method.WEB_AUTH)

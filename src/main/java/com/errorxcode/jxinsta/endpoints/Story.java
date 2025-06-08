@@ -27,7 +27,7 @@ public class Story {
         this.authInfo = info;
     }
 
-    public static List<Story> getActualStory(String id, @NotNull AuthInfo au) throws InstagramException, IOException {
+    public static List<Story> getStoryFromId(String id, @NotNull AuthInfo au) throws InstagramException, IOException {
         List<Story> stories = new ArrayList<>();
         var request = Utils.createGetRequest("feed/reels_media/?reel_ids=" + id, au);
         try (var response = Utils.call(request)) {

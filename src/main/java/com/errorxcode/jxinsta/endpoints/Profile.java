@@ -70,10 +70,9 @@ public class Profile {
 
     public static Profile buildProfile(@NotNull Response response, @Nullable AuthInfo info) throws IOException {
         String bodyString = response.body().string();
-        System.out.println(bodyString);
+        JSONObject json = new JSONObject(bodyString).getJSONObject("data").getJSONObject("user");
+        Profile profile = new Profile(json.getString("username"));
 
-        var json = new JSONObject(bodyString).getJSONObject("data").getJSONObject("user");
-        var profile = new Profile(json.getString("username"));
         profile.full_name = json.getString("full_name");
         profile.pk = json.getLong("id");
         profile.biography = json.getString("biography");
@@ -211,7 +210,7 @@ public class Profile {
         }
 
         try {
-            return Story.getActualStory(pk, authInfo);
+            return Story.getStoryFromId(pk, authInfo);
         } catch (JSONException e) {
             throw new InstagramException("Invalid response, require login", InstagramException.Reason.LOGIN_EXPIRED);
         }
