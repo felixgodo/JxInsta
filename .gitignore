@@ -1,3 +1,5 @@
+.DS_Store
+.idea/
 
 *.tar.gz
 *.json
@@ -24,7 +26,6 @@
 *.mhtml
 *.mp4
 *.html
-*.png
 *.pth
 *.pkl
 .gradle/*
