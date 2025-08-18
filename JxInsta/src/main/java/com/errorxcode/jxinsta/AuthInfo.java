@@ -1,5 +1,7 @@
 package com.errorxcode.jxinsta;
 
+import java.net.Proxy;
+
 import org.jetbrains.annotations.NotNull;
 
 public class AuthInfo {

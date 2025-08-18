@@ -5,6 +5,8 @@ import com.errorxcode.jxinsta.InstagramException;
 import com.errorxcode.jxinsta.JxInsta;
 import com.errorxcode.jxinsta.Utils;
 
+import okhttp3.OkHttpClient;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -15,6 +17,7 @@ import port.org.json.JSONObject;
 
 public class Story {
     protected AuthInfo authInfo;
+    private final OkHttpClient client;
     public long userPk;
     public String username;
     public String storyId;
@@ -24,16 +27,17 @@ public class Story {
     public int duration = -1;
     public int likes = -1;
 
-    public Story(long pk, String id, @NotNull AuthInfo info) {
+    public Story(long pk, String id, @NotNull AuthInfo info,@NotNull OkHttpClient client) {
         this.storyId = id;
         this.userPk = pk;
         this.authInfo = info;
+        this.client = client;
     }
 
-    public static List<Story> getActualStory(String id,@NotNull AuthInfo au) throws InstagramException, IOException {
+    public static List<Story> getActualStory(String id,@NotNull AuthInfo au, @NotNull OkHttpClient client) throws InstagramException, IOException {
         List<Story> stories = new ArrayList<>();
         var request = Utils.createGetRequest("feed/reels_media/?reel_ids=" + id,au);
-        try (var response = Utils.call(request,null)) {
+        try (var response = Utils.call(request,null, client)) {
             if (response.isSuccessful()) {
                 var resJson = response.body().string();
                 var reels = new JSONObject(resJson).getJSONArray("reels_media");
@@ -46,7 +50,7 @@ public class Story {
                     var items = reel.getJSONArray("items");
                     for (int j = 0; j < items.length(); j++) {
                         var item = items.getJSONObject(j);
-                        var story = new Story(user.getLong("pk"), item.getString("id"),au);
+                        var story = new Story(user.getLong("pk"), item.getString("id"),au, client);
                         story.username = user.getString("username");
                         story.is_video = item.getInt("media_type") == 2;
                         if (story.is_video) {

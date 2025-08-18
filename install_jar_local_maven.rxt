@@ -1,0 +1,12 @@
+1. build full jar
+gradle shadowjar
+
+2. create local maven dependency
+mvn install:install-file -Dfile=JxInsta\build\libs\JxInsta-all.jar -DgroupId=com.sample -DartifactId=jxinsta -Dversion=1.0-beta-2 -Dpackaging=jar
+
+3. add in poem
+<dependency>
+    <groupId>com.sample</groupId>
+    <artifactId>jxinsta</artifactId>
+    <version>1.0-beta-2</version>
+</dependency>

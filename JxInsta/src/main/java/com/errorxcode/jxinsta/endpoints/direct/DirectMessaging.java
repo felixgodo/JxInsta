@@ -4,6 +4,8 @@ import com.errorxcode.jxinsta.AuthInfo;
 import com.errorxcode.jxinsta.InstagramException;
 import com.errorxcode.jxinsta.Utils;
 
+import okhttp3.OkHttpClient;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,18 +16,20 @@ import port.org.json.JSONObject;
 
 public class DirectMessaging {
     private final AuthInfo authInfo;
+    private final OkHttpClient client;
     private String nextCursor;
 
-    public DirectMessaging(AuthInfo info) {
+    public DirectMessaging(AuthInfo info,OkHttpClient client) {
         this.authInfo = info;
+        this.client = client;
     }
 
     public Thread getThread(String threadID) throws InstagramException, IOException {
-        return new Thread(threadID, authInfo);
+        return new Thread(threadID, authInfo, client);
     }
 
     public void deleteThread(String threadID) throws InstagramException, IOException {
-        Thread.delete(authInfo, threadID);
+        Thread.delete(authInfo, client, threadID);
     }
 
     public List<Thread> listThreads(int limit,int folder) throws InstagramException, IOException {
@@ -40,7 +44,7 @@ public class DirectMessaging {
 
 
         var req = Utils.createGetRequest("direct_v2/inbox/?" + Utils.map2query(params), authInfo);
-        try (var res = Utils.call(req, authInfo)) {
+        try (var res = Utils.call(req, authInfo, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -55,7 +59,7 @@ public class DirectMessaging {
 
             for (int i = 0; i < threads.length(); i++) {
                 var thread = threads.getJSONObject(i);
-                var mThread = new Thread(thread.getString("thread_id"), authInfo);
+                var mThread = new Thread(thread.getString("thread_id"), authInfo, client);
                 mThread.username = thread.getString("thread_title");
                 mThread.pk = thread.getLong("thread_id");
                 mThread.previousCursor = thread.getString("prev_cursor");

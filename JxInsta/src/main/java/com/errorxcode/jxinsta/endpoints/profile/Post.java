@@ -16,11 +16,13 @@ import java.util.Map;
 
 import okhttp3.FormBody;
 import okhttp3.Headers;
+import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import port.org.json.JSONObject;
 
 public class Post {
     public final AuthInfo authInfo;
+    private final OkHttpClient client;
     public final long id;
     public boolean isVideo;
     public String shortcode;
@@ -30,13 +32,14 @@ public class Post {
     public int likes;
     public int comments;
 
-    public Post(@Nullable AuthInfo authInfo, long id) {
+    public Post(@Nullable AuthInfo authInfo, @NotNull OkHttpClient client, long id) {
         this.authInfo = authInfo;
+        this.client = client;
         this.id = id;
     }
 
 
-    public static Post getPost(@NotNull String url) throws InstagramException, IOException {
+    public static Post getPost(@NotNull String url, @NotNull OkHttpClient client) throws InstagramException, IOException {
         var shortcode = url.split("/p/")[1].split("/")[0];
         var vars = new JSONObject();
         vars.put("shortcode",shortcode);
@@ -57,11 +60,11 @@ public class Post {
                 .method("POST",body)
                 .build();
 
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             var data = json.getJSONObject("data");
             var shortcode_media = data.getJSONObject("xdt_shortcode_media");
-            var post = new Post(null,shortcode_media.getLong("id"));
+            var post = new Post(null,client ,shortcode_media.getLong("id"));
             post.shortcode = shortcode;
             post.caption = shortcode_media.getJSONObject("edge_media_to_caption").getJSONArray("edges").getJSONObject(0).getJSONObject("node").getString("text");
             post.likes = shortcode_media.getJSONObject("edge_media_preview_like").getInt("count");
@@ -76,7 +79,7 @@ public class Post {
 
     public void like() throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"web/likes/" + id + "/like/", null);
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             if (json.has("status") && !json.getString("status").equals("ok")) {
                 throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -86,7 +89,7 @@ public class Post {
 
     public void dislike() throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"web/likes/" + id + "/unlike/", null);
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             if (json.has("status") && !json.getString("status").equals("ok")) {
                 throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -96,7 +99,7 @@ public class Post {
 
     public List<String> likers() throws InstagramException, IOException {
         var req = Utils.createGetRequest("media/" + id + "/likers/",authInfo);
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             if (json.has("status") && !json.getString("status").equals("ok")) {
                 throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -112,7 +115,7 @@ public class Post {
 
     public List<Comment> getComments(int count) throws IOException, InstagramException {
         var req = Utils.createGetRequest("media/" + id + "/comments?can_support_threading=true&permalink_enabled=false",authInfo);
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             if (json.has("status") && !json.getString("status").equals("ok")) {
                 throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -121,7 +124,7 @@ public class Post {
             var list = new ArrayList<Comment>();
             for (int i = 0; i < comments.length(); i++) {
                 var comment = comments.getJSONObject(i);
-                var c = new Comment(authInfo,comment.getString("pk"),id);
+                var c = new Comment(authInfo, client,comment.getString("pk"),id);
                 c.mediaId = comment.getLong("media_id");
                 c.text = comment.getString("text");
                 c.username = comment.getJSONObject("user").getString("username");
@@ -136,7 +139,7 @@ public class Post {
 
     public void comment(@NotNull String comment) throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"web/comments/" + id + "/add/",Map.of("comment_text",comment));
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             if (json.has("status") && !json.getString("status").equals("ok")) {
                 throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -165,18 +168,20 @@ public class Post {
         public int likes;
         public long timestamp;
         public final AuthInfo authInfo;
+        public OkHttpClient client;
 
-        public Comment(AuthInfo authInfo,String id,long postId) {
+        public Comment(AuthInfo authInfo, @NotNull OkHttpClient client,String id,long postId) {
             this.id = id;
             this.mediaId = postId;
             this.authInfo = authInfo;
+            this.client = client;
         }
 
         public void like() throws InstagramException, IOException {
             var req = Utils.createPostRequest(authInfo,"web/comments/like/" + id + "/", null);
             System.out.println(req.headers());
             System.out.println(req.url());
-            try (var res = Utils.call(req,authInfo)) {
+            try (var res = Utils.call(req,authInfo, client)) {
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
                     throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -187,7 +192,7 @@ public class Post {
 
         public void dislike() throws InstagramException, IOException {
             var req = Utils.createPostRequest(authInfo,"web/comments/unlike/" + id + "/", null);
-            try (var res = Utils.call(req,authInfo)) {
+            try (var res = Utils.call(req,authInfo, client)) {
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
                     throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);
@@ -197,7 +202,7 @@ public class Post {
 
         public void reply(@NotNull String reply) throws InstagramException, IOException {
             var req = Utils.createPostRequest(authInfo,"web/comments/" + mediaId + "/add/", Map.of("comment_text", reply, "replied_to_comment_id", id));
-            try (var res = Utils.call(req,authInfo)) {
+            try (var res = Utils.call(req,authInfo, client)) {
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
                     throw new InstagramException(json.getString("message"), InstagramException.Reasons.UNKNOWN);

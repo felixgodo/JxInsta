@@ -30,13 +30,12 @@ public class Utils {
     private static int callCount = 0;
     private static final String ENCODING_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     protected Executor executor = Executors.newCachedThreadPool();
-    protected static OkHttpClient client = new OkHttpClient().newBuilder().followRedirects(false).build();
 
     public static String getDeviceId() {
         return "android-" + Math.random();
     }
 
-    public static Response call(Request request, @Nullable AuthInfo info) throws IOException, InstagramException {
+    public static Response call(Request request, @Nullable AuthInfo info, @NotNull OkHttpClient client) throws IOException, InstagramException {
         var res = client.newCall(request).execute();
         if (res.isSuccessful()){
             if (info != null && info.loginType == JxInsta.LoginType.WEB_AUTHENTICATION){
@@ -63,7 +62,7 @@ public class Utils {
                     if (callCount == 3) {
                         throw new InstagramException("CSRF authentication failing multiple times. It might be possible that instagram have either blacklisted your device or your IP. If the issue persist, please create a issue on github", InstagramException.Reasons.CSRF_AUTHENTICATION_FAILED);
                     } else
-                        return call(req,info);
+                        return call(req,info, client);
                 } else {
                     throw new InstagramException(message, InstagramException.Reasons.UNKNOWN);
                 }
@@ -73,7 +72,7 @@ public class Utils {
         }
     }
 
-    public static void callAsync(Request request, RequestCallback callback) {
+    public static void callAsync(Request request, RequestCallback callback, @NotNull OkHttpClient client) {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
@@ -106,7 +105,7 @@ public class Utils {
         return null;
     }
 
-    protected static String getCrsf() throws IOException {
+    protected static String getCrsf(@NotNull OkHttpClient client) throws IOException {
         Request request = new Request.Builder()
                 .url("https://www.instagram.com/")
                 .addHeader("user-agent", Constants.WEB_USER_AGENT)
@@ -115,7 +114,7 @@ public class Utils {
                 .addHeader("x-requested-with", "XMLHttpRequest")
                 .get()
                 .build();
-
+        
         try (Response response = client.newCall(request).execute()) {
             List<String> cookies = response.headers("Set-Cookie");
 
@@ -137,14 +136,14 @@ public class Utils {
         return cookie.toString().replaceFirst(".$", "");
     }
 
-    public static Response graphql(@NotNull String queryId, @NotNull Map<String, Object> params, @Nullable String authorization) throws IOException, InstagramException {
+    public static Response graphql(@NotNull String queryId, @NotNull Map<String, Object> params, @Nullable String authorization, @NotNull OkHttpClient client) throws IOException, InstagramException {
         var furl = Constants.GraphQl.BASE_URL + queryId + "&" + params.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("&"));
         return call(new Request.Builder()
                 .url(furl)
                 .headers(Headers.of(Constants.BASE_HEADERS))
                 .addHeader(authorization == null ? "origin" : "cookie", authorization == null ? "https://instagram.com" : authorization)
                 .addHeader("user-agent", Constants.WEB_USER_AGENT)
-                .get().build(),null);
+                .get().build(),null,client);
     }
 
     public static Request createPublicRequest(String endpoint) {
@@ -208,12 +207,12 @@ public class Utils {
         return request.newBuilder().addHeader("x-ig-app-id", Constants.X_APP_ID).build();
     }
 
-    public static List<String> uploadPictures(@NotNull String token, File... pictures){
+    public static List<String> uploadPictures(@NotNull String token, @NotNull OkHttpClient client, File... pictures){
         long timestamp = System.currentTimeMillis();
         ArrayList<String> medias = new ArrayList<>();
         for (File picture : pictures) {
             try (InputStream in = new FileInputStream(picture)) {
-                String uploadId = Utils.uploadPicture(in,  token, timestamp);
+                String uploadId = Utils.uploadPicture(in,  token, timestamp, client);
                 timestamp+=1;
                 medias.add(uploadId);
             } catch (IOException e) {
@@ -224,11 +223,11 @@ public class Utils {
         return medias;
     }
     
-    public static String uploadPicture(@NotNull InputStream in, @NotNull String token) throws IOException {
-        return uploadPicture(in, token, System.currentTimeMillis());
+    public static String uploadPicture(@NotNull InputStream in, @NotNull String token, @NotNull OkHttpClient client) throws IOException {
+        return uploadPicture(in, token, System.currentTimeMillis(), client);
     }
 
-    public static String uploadPicture(@NotNull InputStream in, @NotNull String token, long ts) throws IOException {
+    public static String uploadPicture(@NotNull InputStream in, @NotNull String token, long ts, @NotNull OkHttpClient client) throws IOException {
         var uploadId = Long.toString(ts);
         byte[] bytes = new byte[in.available()];
         in.read(bytes);
@@ -247,13 +246,13 @@ public class Utils {
                 .removeHeader("content-type")
                 .addHeader(isCookie ? "cookie" : "authorization", token)
                 .addHeader("content-type", "application/octet-stream");
-
-        var res = client.newCall(uploadReq.build()).execute();
-        if (res.isSuccessful()) {
-            return uploadId;
-        } else {
-            System.out.println(res.body().string());
-            throw new IOException("Failed to upload picture");
+        try (var res = client.newCall(uploadReq.build()).execute();) {
+            if (res.isSuccessful()) {
+                return uploadId;
+            } else {
+                String responseBody = res.body().string();
+                throw new IOException("Failed to upload picture "+responseBody);
+            }
         }
     }
 

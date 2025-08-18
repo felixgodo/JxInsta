@@ -27,20 +27,23 @@ import port.org.json.JSONObject;
 
 public class Thread {
     public final AuthInfo authInfo;
+    private final OkHttpClient client;
     public String threadId;
     public long pk;
     public String username;
     public String previousCursor;
     public Message[] messages;
 
-    public Thread(@NotNull String threadId,@NotNull AuthInfo info) throws InstagramException, IOException {
+    public Thread(@NotNull String threadId, @NotNull AuthInfo info,@NotNull OkHttpClient client) throws InstagramException, IOException {
         this.threadId = threadId;
         this.authInfo = info;
+        this.client = client;
         fetchThread(10);
     }
 
-    public Thread(@NotNull AuthInfo authInfo){
+    public Thread(@NotNull AuthInfo authInfo,@NotNull OkHttpClient client){
         this.authInfo = authInfo;
+        this.client = client;
     }
 
     private void fetchThread(int count) throws InstagramException, IOException {
@@ -54,7 +57,7 @@ public class Thread {
         }
 
         var req = Utils.createGetRequest("direct_v2/threads/" + threadId + "/?" + Utils.map2query(params),authInfo);
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -86,7 +89,7 @@ public class Thread {
         body.put("is_x_transport_forward",forwarded);
 
         var req = Utils.createPostRequest(authInfo,"direct_v2/threads/broadcast/text/",body);
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -119,7 +122,7 @@ public class Thread {
                 .addHeader("offset","0")
                 .build();
 
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             return new JSONObject(res.body().string()).getLong("media_id");
         }
     }
@@ -133,7 +136,7 @@ public class Thread {
         body.put("action","send_item");
         body.put("is_x_transport_forward",false);
         var req = Utils.createPostRequest(authInfo,"direct_v2/threads/broadcast/photo_attachment/",body);
-        try (var res = Utils.call(req,null)) {
+        try (var res = Utils.call(req,null, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -144,7 +147,7 @@ public class Thread {
 
     public void markSeen() throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"direct_v2/threads/" + threadId + "/items/" + messages[0].id + "/seen/",null);
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -160,7 +163,7 @@ public class Thread {
 
     public void unsend(@NotNull String messageId) throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"direct_v2/threads/" + threadId + "/items/" + messageId + "/delete/",null);
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {
@@ -170,12 +173,12 @@ public class Thread {
     }
 
     public void delete() throws InstagramException, IOException {
-        delete(authInfo,threadId);
+        delete(authInfo, client,threadId);
     }
 
-    protected static void delete(@NotNull AuthInfo authInfo,@NotNull String threadId) throws InstagramException, IOException {
+    protected static void delete(@NotNull AuthInfo authInfo, @NotNull OkHttpClient client,@NotNull String threadId) throws InstagramException, IOException {
         var req = Utils.createPostRequest(authInfo,"direct_v2/threads/" + threadId + "/hide/", Map.of("should_move_future_requests_to_spam",false));
-        try (var res = Utils.call(req,authInfo)) {
+        try (var res = Utils.call(req,authInfo, client)) {
             var json = new JSONObject(res.body().string());
             var status = json.getString("status");
             if (!status.equals("ok")) {

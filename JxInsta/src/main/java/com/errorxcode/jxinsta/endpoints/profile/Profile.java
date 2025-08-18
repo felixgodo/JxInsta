@@ -2,7 +2,6 @@ package com.errorxcode.jxinsta.endpoints.profile;
 
 import com.errorxcode.jxinsta.AuthInfo;
 import com.errorxcode.jxinsta.AuthenticationType;
-import com.errorxcode.jxinsta.Constants;
 import com.errorxcode.jxinsta.InstagramException;
 import com.errorxcode.jxinsta.JxInsta;
 import com.errorxcode.jxinsta.Utils;
@@ -11,16 +10,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.lang.ref.Cleaner;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 import port.org.json.JSONException;
 import port.org.json.JSONObject;
@@ -31,6 +25,7 @@ import port.org.json.JSONObject;
  */
 public class Profile {
     protected final AuthInfo authInfo;
+    private final OkHttpClient client;
     public String posts_end_cursor;
     private String nextPageCursor;
     public String username;
@@ -50,13 +45,14 @@ public class Profile {
      * @param authInfo auth info of the user
      * @param username username of the user
      */
-    public Profile(@NotNull AuthInfo authInfo, @NotNull String username) throws InstagramException, IOException {
+    public Profile(@NotNull AuthInfo authInfo, @NotNull String username, @NotNull OkHttpClient client) throws InstagramException, IOException {
         this.authInfo = authInfo;
+        this.client = client;
         this.username = username;
         var request = Utils.createGetRequest("users/web_profile_info/?username=" + username,authInfo);
         request = Utils.injectAppId(request);
-        try (var response = Utils.call(request, authInfo)) {
-            var profile = buildProfile(response, authInfo);
+        try (var response = Utils.call(request, authInfo, client)) {
+            var profile = buildProfile(response, authInfo, client);
             this.username = profile.username;
             this.pk = profile.pk;
             this.full_name = profile.full_name;
@@ -71,14 +67,15 @@ public class Profile {
         }
     }
 
-    public Profile(@NotNull String username) {
+    public Profile(@NotNull String username,@NotNull OkHttpClient client) {
         this.authInfo = null;
+        this.client = client;
         this.username = username;
     }
 
-    public static Profile buildProfile(@NotNull Response response,@Nullable AuthInfo info) throws IOException {
+    public static Profile buildProfile(@NotNull Response response,@Nullable AuthInfo info, @NotNull OkHttpClient client) throws IOException {
         var json = new JSONObject(response.body().string()).getJSONObject("data").getJSONObject("user");
-        var profile = new Profile(json.getString("username"));
+        var profile = new Profile(json.getString("username"), client);
         profile.full_name = json.getString("full_name");
         profile.pk = json.getLong("id");
         profile.biography = json.getString("biography");
@@ -90,7 +87,7 @@ public class Profile {
         var edges = timeline_media.getJSONArray("edges");
         for (int i = 0; i < edges.length(); i++) {
             var post = edges.getJSONObject(i).getJSONObject("node");
-            var aPost = new Post(info,post.getLong("id"));
+            var aPost = new Post(info, client,post.getLong("id"));
             aPost.shortcode = post.getString("shortcode");
             aPost.caption = post.getJSONObject("edge_media_to_caption").getJSONArray("edges").getJSONObject(0).getJSONObject("node").getString("text");
             aPost.likes = post.getJSONObject("edge_media_preview_like").getInt("count");
@@ -115,25 +112,25 @@ public class Profile {
      * @throws InstagramException if there's an error in the Instagram API
      */
     public List<Post> getPosts(@Nullable String next_cursor) throws IOException, InstagramException {
-        return _getPosts(authInfo,pk,next_cursor);
+        return _getPosts(authInfo,pk,next_cursor, client);
     }
 
     @AuthenticationType(AuthenticationType.Method.WEB_AUTH)
-    public static List<Post> _getPosts(@Nullable AuthInfo authInfo,long pk,@Nullable String cursor) throws IOException, InstagramException {
+    public static List<Post> _getPosts(@Nullable AuthInfo authInfo,long pk,@Nullable String cursor, @NotNull OkHttpClient client) throws IOException, InstagramException {
         var params = new HashMap<String, Object>();
         params.put("id", pk);
         params.put("first", 20);
         if (cursor != null)
             params.put("after", cursor);
 
-        try (var response = Utils.graphql("17888483320059182",params,authInfo == null ? null : authInfo.authorization)){
+        try (var response = Utils.graphql("17888483320059182",params,authInfo == null ? null : authInfo.authorization, client)){
             var json = new JSONObject(response.body().string()).getJSONObject("data").getJSONObject("user").getJSONObject("edge_owner_to_timeline_media");
             var posts = json.getJSONArray("edges");
             var _cursor = json.getJSONObject("page_info").getString("end_cursor");
             var list = new ArrayList<Post>();
             for (int i = 0; i < posts.length(); i++) {
                 var post = posts.getJSONObject(i).getJSONObject("node");
-                var aPost = new Post(authInfo,post.getLong("id"));
+                var aPost = new Post(authInfo, client,post.getLong("id"));
                 aPost.shortcode = post.getString("shortcode");
                 aPost.caption = post.getJSONObject("edge_media_to_caption").getJSONArray("edges").getJSONObject(0).getJSONObject("node").getString("text");
                 aPost.likes = post.getJSONObject("edge_media_preview_like").getInt("count");
@@ -155,7 +152,7 @@ public class Profile {
      */
     public List<String> getFollowers(int count) throws IOException, InstagramException {
         var req = Utils.createGetRequest("friendships/" + pk + "/followers/?count=" + count + "&maxId=" + nextPageCursor,authInfo);
-        try (var response = Utils.call(req,authInfo)){
+        try (var response = Utils.call(req,authInfo, client)){
             var json = new JSONObject(response.body().string());
             nextPageCursor = json.getString("next_max_id");
             var list = new ArrayList<String>();
@@ -176,7 +173,7 @@ public class Profile {
      */
     public List<String> getFollowings(int count) throws IOException, InstagramException {
         var req = Utils.createGetRequest("friendships/" + pk + "/following/?count=" + count + "&maxId=" + nextPageCursor,authInfo);
-        try (var response = Utils.call(req,authInfo)){
+        try (var response = Utils.call(req,authInfo, client)){
             var json = new JSONObject(response.body().string());
             nextPageCursor = json.getString("next_max_id");
             var list = new ArrayList<String>();
@@ -202,7 +199,7 @@ public class Profile {
             throw new InstagramException("Cannot get stories with app authentication. Use web authentication only for this", InstagramException.Reasons.INVALID_LOGIN_TYPE);
 
         try {
-            return Story.getActualStory(pk, authInfo);
+            return Story.getActualStory(pk, authInfo, client);
         } catch (JSONException e){
             throw new InstagramException("Invalid response, require login", InstagramException.Reasons.LOGIN_EXPIRED);
         }
@@ -227,7 +224,7 @@ public class Profile {
      */
     @AuthenticationType(AuthenticationType.Method.WEB_AUTH)
     public List<List<Story>> getHighlights() throws IOException, InstagramException {
-        try (var response = Utils.graphql("9957820854288654", Map.of("include_highlight_reels","true","user_id",pk),authInfo.authorization)){
+        try (var response = Utils.graphql("9957820854288654", Map.of("include_highlight_reels","true","user_id",pk),authInfo.authorization, client)){
             if (response.isSuccessful()){
                 var list = new ArrayList<List<Story>>();
                 var res = response.body().string();
@@ -246,7 +243,7 @@ public class Profile {
         var req = Utils.createPostRequest(authInfo,"friendships/create/" + pk + "/",null);
         req = Utils.injectAppId(req);
 
-        try (var res = Utils.call(req,authInfo)){
+        try (var res = Utils.call(req,authInfo, client)){
             if (res.isSuccessful()){
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
@@ -261,7 +258,7 @@ public class Profile {
         var req = Utils.createPostRequest(authInfo,"friendships/destroy/" + pk + "/",null);
         req = Utils.injectAppId(req);
 
-        try (var res = Utils.call(req,authInfo)){
+        try (var res = Utils.call(req,authInfo, client)){
             if (res.isSuccessful()){
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
@@ -276,7 +273,7 @@ public class Profile {
         var req = Utils.createPostRequest(authInfo,"friendships/block/" + pk + "/",null);
         req = Utils.injectAppId(req);
 
-        try (var res = Utils.call(req,authInfo)){
+        try (var res = Utils.call(req,authInfo, client)){
             if (res.isSuccessful()){
                 var json = new JSONObject(res.body().string());
                 if (json.has("status") && !json.getString("status").equals("ok")) {
